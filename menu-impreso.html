@@ -1278,32 +1278,44 @@
     function transformarDatosDeSheets(rows) {
       const secMap = new Map();
 
-      rows.forEach(row => {
-        const secName = (row.Seccion || row.SECCION || "").trim();
+      rows.forEach(rawRow => {
+        // Normalizar las llaves (nombres de columnas) para ignorar mayúsculas, espacios y tildes
+        const row = {};
+        for (let key in rawRow) {
+          const cleanKey = key.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          row[cleanKey] = rawRow[key];
+        }
+
+        const secName = (row.seccion || "").trim();
         if (!secName) return;
 
         const secId = secName.toLowerCase().replace(/[^a-z0-9]/g, '_');
         if (!secMap.has(secId)) {
+          let col = (row.posicion || "left").trim().toLowerCase();
+          if (col === "derecha" || col === "der") col = "right";
+          else if (col === "izquierda" || col === "izq") col = "left";
+          else if (col !== "right") col = "left"; // Fallback a left
+
           secMap.set(secId, {
             id: secId,
             titulo: secName.toUpperCase(),
-            columna: (row.Posicion || row.POSICION || "left").trim().toLowerCase(),
+            columna: col,
             tipo: "full",
             items: []
           });
         }
 
-        const nombre = (row.Plato || row.PLATO || "").trim();
+        const nombre = (row.plato || "").trim();
         if (nombre) {
-          const rawPrecio = (row.Precio || row.PRECIO || "0").toString().replace(/[^0-9.]/g, '');
+          const rawPrecio = (row.precio || "0").toString().replace(/[^0-9.]/g, '');
           const precio = parseFloat(rawPrecio) || 0;
-          const disp = (row.Disponible || row.DISPONIBLE || "SI").trim().toUpperCase();
+          const disp = (row.disponible || "SI").trim().toLowerCase();
 
           secMap.get(secId).items.push({
             nombre: nombre,
-            ingredientes: (row.Ingredientes || row.INGREDIENTES || "").trim(),
+            ingredientes: (row.ingredientes || "").trim(),
             precio: precio,
-            disponible: disp === "SI" || disp === "TRUE" || disp === "SÍ"
+            disponible: disp === "si" || disp === "true" || disp === "sí" || disp === "yes"
           });
         }
       });
