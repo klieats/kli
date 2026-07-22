@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>K-LI Sandwiches — Gestor de Carta Impresa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800;900&family=Outfit:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { brand: { orange: '#f2a33c', darkOrange: '#d97706', cream: '#fcfaf2', navy: '#16213e' } },
+          fontFamily: { serif: ['Cinzel', 'Georgia', 'serif'], sans: ['Outfit', 'Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    @media print {
+      body {
+        background: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+
+      .print-page {
+        width: 8.5in !important;
+        height: 11in !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        page-break-after: always;
+        page-break-inside: avoid;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .print-page:last-child {
+        page-break-after: auto;
+      }
+
+      @page {
+        size: letter;
+        margin: 0;
+      }
+    }
+
+    .print-page {
+      width: 8.5in;
+      height: 11in;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 12px 50px -8px rgba(0, 0, 0, .28);
+      font-size: var(--pfs, 12.5px);
+      padding: var(--pp, 2.2em);
+      background-color: var(--bg);
+      color: var(--fg);
+      transition: background-color .25s, color .25s;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .theme-cream {
+      --bg: #FAF7F0;
+      --fg: #16213e;
+    }
+
+    .theme-dark {
+      --bg: #16213e;
+      --fg: #FAF7F0;
+    }
+
+    .menu-item-gap {
+      margin-bottom: var(--ig, 0.55em);
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    .page-pill-1 {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .page-pill-2 {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .page-pill-3 {
+      background: #fce7f3;
+      color: #be185d;
+    }
+
+    .page-pill-4 {
+      background: #fef9c3;
+      color: #a16207;
+    }
+
+    .page-pill-5 {
+      background: #ede9fe;
+      color: #7c3aed;
+    }
+
+    .sec-card:hover {
+      box-shadow: 0 0 0 2px #f2a33c55;
+    }
+
+    #modal-bg {
+      backdrop-filter: blur(3px);
+    }
+
+    /* Layout reflow indicator */
+    #layout-indicator {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      z-index: 100;
+      background: #1e293b;
+      color: #f8fafc;
+      font-size: 11px;
+      font-family: monospace;
+      font-weight: 600;
+      padding: .35rem .7rem;
+      border-radius: 6px;
+      opacity: 0;
+      transition: opacity .2s;
+      pointer-events: none;
+    }
+
+    #layout-indicator.active {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-300 min-h-screen flex font-sans text-slate-800 antialiased overflow-x-hidden">
+
+  <!-- ░░░ LAYOUT INDICATOR ░░░ -->
+  <div id="layout-indicator">⟳ Recalculando páginas…</div>
+
+  <!-- ═══════════════════════════════════ SIDEBAR ═══════════════════════════════════ -->
+  <aside class="no-print w-[430px] shrink-0 bg-white border-r border-slate-200 h-screen flex flex-col shadow-xl z-20">
+
+    <!-- Top bar -->
+    <div class="px-4 py-3 bg-slate-900 text-white flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-2">
+        <div class="bg-brand-orange text-white px-2 py-1 rounded font-serif font-black text-sm">K-LI</div>
+        <div>
+          <p class="font-bold text-sm">Editor de Carta</p>
+          <p class="text-[10px] text-slate-400">Auto-flujo activo · <span id="lbl-pages">1 hoja</span></p>
+        </div>
+      </div>
+      <button onclick="window.print()"
+        class="flex items-center gap-1.5 bg-brand-orange hover:bg-brand-darkOrange text-white text-xs font-bold px-3 py-2 rounded shadow transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M17 17H7a2 2 0 01-2-2V9a2 2 0 012-2h10a2 2 0 012 2v6a2 2 0 01-2 2zm0-10V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2" />
+          <rect x="9" y="13" width="6" height="5" rx="1" />
+        </svg>
+        Imprimir
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex border-b border-slate-200 shrink-0 text-xs font-semibold">
+      <button id="btn-t-design" onclick="showTab('t-design')"
+        class="flex-1 py-2.5 text-brand-orange border-b-2 border-brand-orange">Diseño</button>
+      <button id="btn-t-brand" onclick="showTab('t-brand')"
+        class="flex-1 py-2.5 text-slate-500 border-b-2 border-transparent">Identidad</button>
+      <button id="btn-t-sections" onclick="showTab('t-sections')"
+        class="flex-1 py-2.5 text-slate-500 border-b-2 border-transparent">Secciones</button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto">
+
+      <!-- ── TAB DISEÑO ── -->
+      <div id="t-design" class="p-4 space-y-4">
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tema Visual</p>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="setTheme('cream')" id="btn-cream"
+              class="border-2 border-brand-orange bg-[#FAF7F0] text-brand-navy font-semibold text-xs py-2 rounded shadow-sm">☀️
+              Clásico Crema</button>
+            <button onclick="setTheme('dark')" id="btn-dark"
+              class="border-2 border-slate-300 bg-brand-navy text-slate-300 font-semibold text-xs py-2 rounded">🌙
+              Moderno Oscuro</button>
+          </div>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-3">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Escala y Espaciado</p>
+          <div>
+            <div class="flex justify-between mb-1"><label class="text-xs font-semibold text-slate-600">Tamaño de
+                letra</label><span id="lbl-font"
+                class="text-xs font-mono font-bold bg-white border border-slate-200 px-1.5 rounded">12.5px</span></div>
+            <input id="sl-font" type="range" min="8" max="16" step="0.5" value="12.5"
+              class="w-full h-1.5 rounded-full accent-brand-orange appearance-none cursor-pointer bg-slate-200">
+          </div>
+          <div>
+            <div class="flex justify-between mb-1"><label class="text-xs font-semibold text-slate-600">Espaciado entre
+                platos</label><span id="lbl-gap"
+                class="text-xs font-mono font-bold bg-white border border-slate-200 px-1.5 rounded">0.55em</span></div>
+            <input id="sl-gap" type="range" min="0.1" max="1.2" step="0.05" value="0.55"
+              class="w-full h-1.5 rounded-full accent-brand-orange appearance-none cursor-pointer bg-slate-200">
+          </div>
+          <div>
+            <div class="flex justify-between mb-1"><label class="text-xs font-semibold text-slate-600">Márgenes de
+                hoja</label><span id="lbl-pad"
+                class="text-xs font-mono font-bold bg-white border border-slate-200 px-1.5 rounded">2.2em</span></div>
+            <input id="sl-pad" type="range" min="1.0" max="3.5" step="0.1" value="2.2"
+              class="w-full h-1.5 rounded-full accent-brand-orange appearance-none cursor-pointer bg-slate-200">
+          </div>
+          <div class="flex items-center justify-between pt-1 border-t border-slate-200">
+            <label class="text-xs font-semibold text-slate-600">Línea divisoria central</label>
+            <input id="tog-div" type="checkbox" checked class="w-4 h-4 accent-brand-orange cursor-pointer rounded">
+          </div>
+        </div>
+        <!-- Pages summary -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Distribución de Hojas</p>
+          <div id="pages-summary" class="space-y-1.5 text-xs"></div>
+          <p class="text-[9px] text-slate-400 leading-relaxed pt-1 border-t border-slate-200">El contenido se distribuye
+            <strong>automáticamente</strong>. Ajusta el tamaño de letra o el espaciado para controlar cuánto cabe por
+            hoja. Reordena las secciones para cambiar su posición en el flujo.
+          </p>
+        </div>
+      </div>
+
+      <!-- ── TAB IDENTIDAD ── -->
+      <div id="t-brand" class="p-4 space-y-3 hidden">
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Datos del Restaurante</p>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="block text-[10px] font-bold text-slate-500 mb-0.5">Nombre</label><input id="ii-name"
+                type="text"
+                class="w-full text-xs border border-slate-300 p-1.5 rounded focus:ring-1 focus:ring-brand-orange outline-none">
+            </div>
+            <div><label class="block text-[10px] font-bold text-slate-500 mb-0.5">Tagline</label><input id="ii-tagline"
+                type="text"
+                class="w-full text-xs border border-slate-300 p-1.5 rounded focus:ring-1 focus:ring-brand-orange outline-none">
+            </div>
+            <div><label class="block text-[10px] font-bold text-slate-500 mb-0.5">Teléfono</label><input id="ii-phone"
+                type="text"
+                class="w-full text-xs border border-slate-300 p-1.5 rounded focus:ring-1 focus:ring-brand-orange outline-none">
+            </div>
+            <div><label class="block text-[10px] font-bold text-slate-500 mb-0.5">Nota pie</label><input id="ii-extra"
+                type="text"
+                class="w-full text-xs border border-slate-300 p-1.5 rounded focus:ring-1 focus:ring-brand-orange outline-none">
+            </div>
+            <div><label class="block text-[10px] font-bold text-slate-500 mb-0.5">Instagram</label><input id="ii-ig"
+                type="text"
+                class="w-full text-xs border border-slate-300 p-1.5 rounded focus:ring-1 focus:ring-brand-orange outline-none">
+            </div>
+            <div><label class="block text-[10px] font-bold text-slate-500 mb-0.5">Facebook</label><input id="ii-fb"
+                type="text"
+                class="w-full text-xs border border-slate-300 p-1.5 rounded focus:ring-1 focus:ring-brand-orange outline-none">
+            </div>
+          </div>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Logo</p>
+          <input id="logo-upload" type="file" accept="image/*"
+            class="w-full text-[10px] border border-slate-200 p-1 rounded bg-white cursor-pointer file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-slate-100">
+          <button id="btn-rl" onclick="resetLogo()" class="hidden text-[9px] text-red-500 hover:underline">Restaurar
+            logo original</button>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Código QR</p>
+          <div><label class="block text-[10px] font-bold text-slate-500 mb-0.5">Enlace para generar QR</label><input
+              id="ii-qr" type="text" placeholder="https://..."
+              class="w-full text-xs border border-slate-300 p-1.5 rounded focus:ring-1 focus:ring-brand-orange outline-none">
+          </div>
+          <p class="text-[10px] text-slate-400 text-center">— ó subir imagen —</p>
+          <input id="qr-upload" type="file" accept="image/*"
+            class="w-full text-[10px] border border-slate-200 p-1 rounded bg-white cursor-pointer file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-slate-100">
+          <button id="btn-rq" onclick="resetQr()" class="hidden text-[9px] text-red-500 hover:underline">Restaurar QR
+            automático</button>
+        </div>
+      </div>
+
+      <!-- ── TAB SECCIONES ── -->
+      <div id="t-sections" class="p-3 space-y-3 hidden">
+        <button onclick="openAddModal()"
+          class="w-full flex items-center justify-center gap-2 border-2 border-dashed border-brand-orange text-brand-orange hover:bg-orange-50 text-xs font-bold py-2.5 rounded-xl transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Agregar nueva sección
+        </button>
+        <div id="sec-list" class="space-y-2"></div>
+      </div>
+
+    </div><!-- /body -->
+
+    <div class="shrink-0 grid grid-cols-2 gap-2 p-3 border-t border-slate-200 bg-slate-50">
+      <button onclick="exportJson()"
+        class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 rounded shadow transition">⬇ Exportar
+        JSON</button>
+      <button onclick="resetAll()"
+        class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 rounded transition">↩ Restaurar
+        Base</button>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════ CANVAS AREA ══════════════════════════ -->
+  <main id="canvas-area"
+    class="flex-1 flex flex-col items-center bg-slate-400/50 py-8 px-6 overflow-y-auto h-screen gap-0"></main>
+
+  <!-- ══════════════════════════ MODAL ══════════════════════════ -->
+  <div id="modal-bg" class="no-print fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 id="modal-title" class="font-bold text-slate-800 text-base">Nueva Sección</h2>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Título de la sección *</label>
+          <input id="m-titulo" type="text" placeholder="ej: POSTRES"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-orange outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Subtítulo <span
+              class="text-slate-400 font-normal">(para sub-grupos como LIMONADAS, CAFÉ…)</span></label>
+          <input id="m-subtitulo" type="text" placeholder="ej: TORTAS FRÍAS"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-orange outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Columna en el menú</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label
+              class="flex items-center gap-2 border border-slate-200 rounded-lg p-2.5 cursor-pointer has-[:checked]:border-brand-orange has-[:checked]:bg-orange-50 transition">
+              <input type="radio" name="m-col" value="left" checked class="accent-brand-orange"> <span
+                class="text-xs font-medium">◧ Columna Izquierda</span>
+            </label>
+            <label
+              class="flex items-center gap-2 border border-slate-200 rounded-lg p-2.5 cursor-pointer has-[:checked]:border-brand-orange has-[:checked]:bg-orange-50 transition">
+              <input type="radio" name="m-col" value="right" class="accent-brand-orange"> <span
+                class="text-xs font-medium">◨ Columna Derecha</span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Tipo de ítem</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label
+              class="flex items-center gap-2 border border-slate-200 rounded-lg p-2.5 cursor-pointer has-[:checked]:border-brand-orange has-[:checked]:bg-orange-50 transition">
+              <input type="radio" name="m-tipo" value="full" checked class="accent-brand-orange"> <span
+                class="text-xs font-medium">📋 Con descripción</span>
+            </label>
+            <label
+              class="flex items-center gap-2 border border-slate-200 rounded-lg p-2.5 cursor-pointer has-[:checked]:border-brand-orange has-[:checked]:bg-orange-50 transition">
+              <input type="radio" name="m-tipo" value="compact" class="accent-brand-orange"> <span
+                class="text-xs font-medium">🍹 Compacto</span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Página</label>
+          <select id="m-pagina"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-orange outline-none bg-white">
+            <option value="auto">Automático (Auto-flujo)</option>
+            <option value="1">Hoja 1</option>
+            <option value="2">Hoja 2</option>
+            <option value="3">Hoja 3</option>
+            <option value="4">Hoja 4</option>
+            <option value="5">Hoja 5</option>
+            <option value="6">Hoja 6</option>
+            <option value="7">Hoja 7</option>
+            <option value="8">Hoja 8</option>
+          </select>
+        </div>
+      </div>
+      <input type="hidden" id="m-edit-idx" value="-1">
+      <div class="flex gap-2 pt-1">
+        <button onclick="closeModal()"
+          class="flex-1 border border-slate-300 text-slate-600 font-semibold text-sm py-2 rounded-lg hover:bg-slate-50 transition">Cancelar</button>
+        <button onclick="saveSection()"
+          class="flex-1 bg-brand-orange hover:bg-brand-darkOrange text-white font-bold text-sm py-2 rounded-lg shadow transition">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ JAVASCRIPT ══════════════════════════ -->
+  <script>
+    // ─── DEFAULT DATA ─────────────────────────────────────────────────
+    const DEFAULTS = {
+      info: {
+        restaurantName: "K-LI", tagline: "SANDWICHES", phone: "3508485527",
+        instagram: "klisandwich", facebook: "JAVIER K-LI",
+        qrUrl: "https://instagram.com/klisandwich",
+        extraNote: "*PORCIÓN DE PAPAS CHIPS: $3.500"
+      },
+      secciones: [
+        {
+          id: "sandwiches", titulo: "SÁNDWICHES", columna: "left", tipo: "full", items: [
+            { nombre: "EL PANELA AHUMADO", ingredientes: "Pulpa de cerdo con un auténtico sabor a barbacoa, pan artesanal, lechuga y zanahoria crujientes y suave queso mozzarella.", precio: 23500, disponible: true },
+            { nombre: "EL DESMECHADO DE BARRIO", ingredientes: "Falda de res desmechada acompañada de queso mozzarella, plátano maduro frito, lechuga y nuestra salsa de ajo gourmet.", precio: 24200, disponible: true },
+            { nombre: "EL TRIFÁSICO", ingredientes: "Jamón de cerdo ahumado, jamón de pavo ahumado, pernil de cerdo, tomate, queso mozzarella, lechuga y nuestra salsa de ajo de la casa.", precio: 15500, disponible: true },
+            { nombre: "EL CARMESÍ", ingredientes: "Pulpa fina de cerdo reducción de Cerveza y Panela, mermelada de pimentón artesanal, suave queso mozzarella, lechuga fresca y pan artesanal de la casa.", precio: 18900, disponible: true },
+            { nombre: "EL HAWAIANO ESPECIAL", ingredientes: "Jamón de cerdo ahumado, piña en trocitos, tomate, queso mozzarella, lechuga y nuestra salsa de ajo de la casa.", precio: 18500, disponible: true },
+            { nombre: "EL REY AZTECA", ingredientes: "Carne de cerdo adobada con cerveza Corona, frijoles refritos con un toquecito picante, pan artesanal, lechuga y abundante queso mozzarella.", precio: 23000, disponible: true },
+            { nombre: "EL TALLADOR", ingredientes: "Pechuga de pollo sellada a la parrilla, queso gouda, pan campesino artesanal con finas hierbas, lechuga, salsa del chef (mezcla de yogur griego y mostaza Dijon).", precio: 24500, disponible: true },
+            { nombre: "EL MEDITERRÁNEO FRESCO", ingredientes: "Jamón serrano, queso gouda, pesto de albahaca, aceitunas rellenas de queso, tomate, lechuga y pan artesanal con finas hierbas.", precio: 26200, disponible: true }
+          ]
+        },
+        {
+          id: "canastas de platano", titulo: "CANASTAS DE PLATANO", columna: "left", tipo: "full", items: [
+            { nombre: "LA BIRRIOSA DE BARRIO", ingredientes: "Riquísima base de papa con queso y boloñesa elaborada con tomates frescos y carne de res de primera calidad, acompañada con el toque especial del pimentón asado y aguacate.", precio: 15900, disponible: true },
+            { nombre: "LA TALLADORA DE POLLO", ingredientes: "Deliciosa base de papa, pollo, queso mozzarella, tocineta perfectamente bañada en exquisita salsa de champiñones.", precio: 15900, disponible: true },
+            { nombre: "LA BOLOÑESA CRIOLLA", ingredientes: "Riquísima base de papa, queso, con boloñesa a base de tomates frescos y carne de res de primera calidad, con el toque especial del pimentón asado y aguacate.", precio: 15900, disponible: true }
+          ]
+        },
+        {
+          id: "bebidas_limonadas", titulo: "LIMONADAS", columna: "right", tipo: "full", items: [
+            { nombre: "Limonada natural", ingredientes: "Bebida refrescante a base de limón natural.", precio: 3500, disponible: true },
+            { nombre: "Limonada de hierba buena", ingredientes: "Bebida refrescante de limón natural y hojas de hierbabuena.", precio: 7000, disponible: true },
+            { nombre: "Limonada de mango", ingredientes: "Bebida refrescante de limón con delicioso toque de mango.", precio: 8500, disponible: true },
+            { nombre: "Limonada de lulo", ingredientes: "Bebida refrescante de limón con exótico toque de lulo.", precio: 8500, disponible: true },
+            { nombre: "Limonada de coco", ingredientes: "Cremosa y refrescante limonada con un dulce toque de coco.", precio: 9000, disponible: true }
+          ]
+        },
+        {
+          id: "bebidas_jugos", titulo: "JUGOS DE FRUTA", columna: "right", tipo: "full", items: [
+            { nombre: "Jugos en agua", ingredientes: "Fresa, mango, lulo, guanabana, mora o frutos rojos.", precio: 7000, disponible: true },
+            { nombre: "Jugos en leche", ingredientes: "Mango, fresa, lulo, guanabana, mora o frutos rojos.", precio: 8000, disponible: true },
+            { nombre: "Batido de banano", ingredientes: "Delicioso batido espeso y dulce a base de banano.", precio: 8700, disponible: true }
+          ]
+        },
+        {
+          id: "bebidas_sodas", titulo: "SODAS ITALIANAS", columna: "right", tipo: "full", items: [
+            { nombre: "Frutos rojos", ingredientes: "Bebida gasificada y refrescante sabor a frutos rojos.", precio: 10000, disponible: true },
+            { nombre: "Limón y menta", ingredientes: "Bebida gasificada y refrescante sabor a limón y menta.", precio: 7000, disponible: true },
+            { nombre: "Coca-cola 237 ml", ingredientes: "Bebida gaseosa tradicional.", precio: 3200, disponible: true }
+          ]
+        },
+        {
+          id: "bebidas_cafe", titulo: "CAFÉ & OTROS", columna: "right", tipo: "full", items: [
+            { nombre: "Tinto Sencillo", ingredientes: "Café de máquina.", precio: 2000, disponible: true },
+            { nombre: "Café K-II", ingredientes: "Leche condensada, vainilla y crema chantilly.", precio: 3200, disponible: true },
+            { nombre: "Capuccino sabanero", ingredientes: "Doble shot de espresso, leche cremada, crema chantilly, canela y leche condensada.", precio: 3700, disponible: true },
+            { nombre: "Latte terciopelo", ingredientes: "Shot de espresso, leche cremada, chocolate, vainilla y canela.", precio: 3900, disponible: true },
+            { nombre: "Batido espumoso de café", ingredientes: "Café espumado, leche entera, hielo, jarabe, vainilla y canela.", precio: 7000, disponible: true },
+            { nombre: "Armática de frutas", ingredientes: "Frutos rojos y hierbabuena.", precio: 6000, disponible: true },
+            { nombre: "Infusión de frutos rojos", ingredientes: "Bebida de frutos rojos y panela.", precio: 2000, disponible: true }
+          ]
+        },
+        {
+          id: "desayuno_mecato", titulo: "DESAYUNO & MECATO", columna: "right", tipo: "full", items: [
+            { nombre: "Huevos en canasta", ingredientes: "Pan artesanal con tocineta, queso mozzarella y aguacate, acompañados de un delicioso latte.", precio: 12900, disponible: true },
+            { nombre: "Desayuno kli", ingredientes: "Sándwich de jamón de pavo ahumado y queso mozzarella, acompañado de huevos pochados y café.", precio: 12000, disponible: true },
+            { nombre: "Parfait", ingredientes: "Granola, yogurt griego, fresa, dulce de frutos rojos, miel.", precio: 11000, disponible: true },
+            { nombre: "Parfait mini", ingredientes: "Versión pequeña de nuestro delicioso parfait con granola, yogurt griego, fresa y miel.", precio: 6000, disponible: true },
+            { nombre: "Garullas", ingredientes: "Auténticas y tradicionales, importadas de Garagoa Boyaca.", precio: 3000, disponible: true },
+            { nombre: "Nachos", ingredientes: "Crocanticos nachos mexicanos con guacamole.", precio: 6000, disponible: true },
+            { nombre: "Tortillas", ingredientes: "Tortillas de maíz frescas.", precio: 6000, disponible: true }
+          ]
+        }
+      ]
+    };
+
+    const PAGE_COLORS = ['page-pill-1', 'page-pill-2', 'page-pill-3', 'page-pill-4', 'page-pill-5'];
+
+    // ─── STATE ─────────────────────────────────────────────────────────
+    let S = {
+      theme: 'cream', fontSize: 12.5, itemGap: 0.55, padding: 2.2, showDivider: true,
+      info: { ...DEFAULTS.info },
+      secciones: JSON.parse(JSON.stringify(DEFAULTS.secciones)),
+      customLogo: null, customQr: null
+    };
+    let _layout = { leftByPage: [], rightByPage: [], secPage: {} };
+    let _debTimer = null;
+
+    // ─── INIT ──────────────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+      // Pega aquí la URL de tu Google Sheet publicado como CSV
+      // Debe verse como: https://docs.google.com/spreadsheets/d/.../export?format=csv
+      const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSmiwhPmrwdoCKQc0lmFUhvJxE-iS_nCY8MSbv9YMxTevy6l8tbPAGp_9w5BkuHQO9egnopIMCrmb0p/pub?output=csv";
+
+      if (GOOGLE_SHEETS_CSV_URL.startsWith("http")) {
+        Papa.parse(GOOGLE_SHEETS_CSV_URL, {
+          download: true,
+          header: true,
+          complete: function (results) {
+            const transformedData = transformarDatosDeSheets(results.data);
+            init({ info: DEFAULTS.info, secciones: transformedData }, true);
+          },
+          error: function (error) {
+            console.error("Error cargando Google Sheets:", error);
+            init(null);
+          }
+        });
+      } else {
+        fetch('carta.json')
+          .then(r => { if (!r.ok) throw 0; return r.json(); })
+          .then(d => init(d))
+          .catch(() => init(null));
+      }
+
+      // Sliders
+      const sliders = [
+        ['sl-font', 'lbl-font', 'px', v => S.fontSize = v],
+        ['sl-gap', 'lbl-gap', 'em', v => S.itemGap = v],
+        ['sl-pad', 'lbl-pad', 'em', v => S.padding = v]
+      ];
+      sliders.forEach(([id, lbl, unit, setter]) => {
+        document.getElementById(id).addEventListener('input', () => {
+          const v = parseFloat(document.getElementById(id).value);
+          document.getElementById(lbl).textContent = v + unit;
+          setter(v); scheduleRender();
+        });
+      });
+
+      document.getElementById('tog-div').addEventListener('change', e => {
+        S.showDivider = e.target.checked; scheduleRender();
+      });
+
+      // Info fields
+      const infoBindings = [
+        ['ii-name', 'restaurantName'], ['ii-tagline', 'tagline'], ['ii-phone', 'phone'],
+        ['ii-ig', 'instagram'], ['ii-fb', 'facebook'], ['ii-extra', 'extraNote']
+      ];
+      infoBindings.forEach(([id, key]) => {
+        document.getElementById(id).addEventListener('input', e => {
+          S.info[key] = e.target.value;
+          updateAllFooters(); save();
+        });
+      });
+      document.getElementById('ii-qr').addEventListener('input', e => {
+        S.info.qrUrl = e.target.value;
+        if (!S.customQr) updateAllQRs(); save();
+      });
+
+      document.getElementById('logo-upload').addEventListener('change', handleLogoUpload);
+      document.getElementById('qr-upload').addEventListener('change', handleQrUpload);
+      document.getElementById('modal-bg').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+    });
+
+    function init(jsonData, fromSheets = false) {
+      const saved = localStorage.getItem('kli_carta_v4');
+
+      if (saved) {
+        try { S = { ...S, ...JSON.parse(saved) }; } catch (e) { }
+      }
+
+      if (jsonData) {
+        // Si no hay datos guardados, usar la info de jsonData
+        if (!saved) {
+          S.info = { ...jsonData.info };
+        }
+
+        // Si los datos vienen de Google Sheets, forzar la sobreescritura de las secciones
+        if (fromSheets || !saved) {
+          S.secciones = JSON.parse(JSON.stringify(jsonData.secciones));
+        }
+      }
+
+      // Ensure fields exist
+      S.secciones.forEach(sec => {
+        if (!sec.columna) sec.columna = 'left';
+        if (!sec.tipo) sec.tipo = 'full';
+      });
+      syncUI();
+      scheduleRender();
+    }
+
+    function save() { localStorage.setItem('kli_carta_v4', JSON.stringify(S)); }
+
+    function scheduleRender(fast = false) {
+      showIndicator(true);
+      clearTimeout(_debTimer);
+      _debTimer = setTimeout(() => { renderAll(); save(); showIndicator(false); }, fast ? 50 : 120);
+    }
+
+    function showIndicator(on) {
+      document.getElementById('layout-indicator').classList.toggle('active', on);
+    }
+
+    function syncUI() {
+      document.getElementById('sl-font').value = S.fontSize; document.getElementById('lbl-font').textContent = S.fontSize + 'px';
+      document.getElementById('sl-gap').value = S.itemGap; document.getElementById('lbl-gap').textContent = S.itemGap + 'em';
+      document.getElementById('sl-pad').value = S.padding; document.getElementById('lbl-pad').textContent = S.padding + 'em';
+      document.getElementById('tog-div').checked = S.showDivider;
+      document.getElementById('ii-name').value = S.info.restaurantName;
+      document.getElementById('ii-tagline').value = S.info.tagline;
+      document.getElementById('ii-phone').value = S.info.phone;
+      document.getElementById('ii-ig').value = S.info.instagram;
+      document.getElementById('ii-fb').value = S.info.facebook;
+      document.getElementById('ii-extra').value = S.info.extraNote;
+      document.getElementById('ii-qr').value = S.info.qrUrl;
+      document.getElementById('btn-rl').classList.toggle('hidden', !S.customLogo);
+      document.getElementById('btn-rq').classList.toggle('hidden', !S.customQr);
+    }
+
+    // ─── AUTO LAYOUT ENGINE ────────────────────────────────────────────
+    function computeLayout() {
+      // 1. Build a hidden measurement page off-screen
+      const meas = document.createElement('div');
+      meas.className = `print-page ${S.theme === 'dark' ? 'theme-dark' : 'theme-cream'}`;
+      meas.style.cssText = 'position:fixed;left:-9999px;top:0;visibility:hidden;pointer-events:none;z-index:-1;';
+      meas.style.setProperty('--pfs', S.fontSize + 'px');
+      meas.style.setProperty('--ig', S.itemGap + 'em');
+      meas.style.setProperty('--pp', S.padding + 'em');
+
+      meas.innerHTML = `
+    <div class="meas-header shrink-0 bg-brand-orange text-white px-[1.4em] py-[0.7em] flex items-center mb-[1em]">
+      <div>
+        <div class="font-serif font-black text-[2.4em] leading-none">K-LI</div>
+        <div class="text-[0.65em] mt-0.5 font-sans">SANDWICHES</div>
+      </div>
+      <div class="ml-auto h-[4em] w-[4em] rounded-full bg-white"></div>
+    </div>
+    <div class="flex-1 grid grid-cols-2 gap-[1.3em] relative min-h-0 overflow-hidden">
+      <div class="meas-col-left flex flex-col gap-[1em] pr-[0.6em]"></div>
+      <div class="meas-col-right flex flex-col gap-[1em] pl-[0.6em]"></div>
+    </div>
+    <div class="meas-footer shrink-0 mt-[0.7em] pt-[0.7em] border-t flex items-center gap-2">
+      <div class="flex flex-col gap-1">
+        <div class="bg-brand-orange text-white px-3 py-0.5 font-sans font-bold text-[0.75em] rounded-sm">HAZ TU PEDIDO</div>
+        <div class="font-sans font-bold text-[1em]">3508485527</div>
+      </div>
+      <div class="ml-auto flex items-center gap-2">
+        <div class="flex flex-col text-[0.72em] gap-1"><span>@klisandwich</span><span>JAVIER K-LI</span></div>
+        <div class="w-[3em] h-[3em] bg-slate-200"></div>
+      </div>
+    </div>
+  `;
+
+      document.body.appendChild(meas);
+
+      // 2. Read page structure dimensions (offsetHeight forces layout sync)
+      const hdr = meas.querySelector('.meas-header');
+      const ftr = meas.querySelector('.meas-footer');
+      const colL = meas.querySelector('.meas-col-left');
+      const colR = meas.querySelector('.meas-col-right');
+      const pageH = meas.offsetHeight;
+      const headerH = hdr.offsetHeight + (S.fontSize * 1.0);  // + mb-[1em]
+      const footerH = ftr.offsetHeight + (S.fontSize * 0.7);  // + mt-[0.7em]
+      const availH = pageH - headerH - footerH;
+
+      // 3. Measure each section's block height
+      const fmt = v => (v || v === 0) ? '$ ' + Number(v).toLocaleString('es-CO') : '';
+      const measH = {};  // si -> height without parent badge
+      const badgeH = {};  // titulo -> parent badge height
+
+      S.secciones.forEach((sec, si) => {
+        const active = sec.items.filter(i => i.disponible);
+        if (!active.length) { measH[si] = 0; return; }
+
+        const wrap = document.createElement('div');
+        wrap.className = 'flex flex-col';
+
+        if (!sec.subtitulo) {
+          wrap.appendChild(buildBadge(sec.titulo));
+          wrap.appendChild(buildItemList(sec, active, fmt));
+        } else {
+          wrap.appendChild(buildSubGroup(sec, active, fmt));
+        }
+
+        colL.appendChild(wrap);
+        measH[si] = wrap.offsetHeight;  // sync layout read
+        colL.removeChild(wrap);
+      });
+
+      // 4. Measure shared parent badges for subtitulo groups
+      const titlesWithSub = [...new Set(S.secciones.filter(s => s.subtitulo && s.items.some(i => i.disponible)).map(s => s.titulo))];
+      titlesWithSub.forEach(titulo => {
+        const b = buildBadge(titulo);
+        colL.appendChild(b);
+        badgeH[titulo] = b.offsetHeight;  // sync
+        colL.removeChild(b);
+      });
+
+      document.body.removeChild(meas);
+
+      // 5. Greedy pack algorithm
+      const gapPx = S.fontSize * 1.0;  // gap-[1em] between sections
+      const subGapPx = S.fontSize * 0.5;  // small extra gap after parent badge
+
+      function pack(secIndices) {
+        const pages = [];
+        const curHArr = [];
+        const badgesArr = [];
+
+        function getPage(pIdx) {
+          while (pages.length <= pIdx) {
+            pages.push([]);
+            curHArr.push(0);
+            badgesArr.push(new Set());
+          }
+        }
+
+        let autoPageIdx = 0;
+
+        secIndices.forEach(si => {
+          const sec = S.secciones[si];
+          const active = sec.items.filter(i => i.disponible);
+          if (!active.length) return;
+
+          let targetPage = sec.pagina ? sec.pagina - 1 : null;
+          let blkH = measH[si] || (S.fontSize * 4);
+
+          if (targetPage !== null) {
+            // Manual placement
+            getPage(targetPage);
+            if (sec.subtitulo && !badgesArr[targetPage].has(sec.titulo)) {
+              blkH += (badgeH[sec.titulo] || S.fontSize * 3.5) + subGapPx;
+            }
+            pages[targetPage].push(si);
+            curHArr[targetPage] += (curHArr[targetPage] > 0 ? gapPx : 0) + blkH;
+            if (sec.subtitulo) badgesArr[targetPage].add(sec.titulo);
+          } else {
+            // Auto placement
+            getPage(autoPageIdx);
+
+            let tempBlkH = blkH;
+            if (sec.subtitulo && !badgesArr[autoPageIdx].has(sec.titulo)) {
+              tempBlkH += (badgeH[sec.titulo] || S.fontSize * 3.5) + subGapPx;
+            }
+
+            const gap = curHArr[autoPageIdx] > 0 ? gapPx : 0;
+
+            if (curHArr[autoPageIdx] > 0 && curHArr[autoPageIdx] + gap + tempBlkH > availH) {
+              autoPageIdx++;
+              getPage(autoPageIdx);
+              tempBlkH = blkH;
+              if (sec.subtitulo && !badgesArr[autoPageIdx].has(sec.titulo)) {
+                tempBlkH += (badgeH[sec.titulo] || S.fontSize * 3.5) + subGapPx;
+              }
+            }
+
+            pages[autoPageIdx].push(si);
+            curHArr[autoPageIdx] += (curHArr[autoPageIdx] > 0 ? gapPx : 0) + tempBlkH;
+            if (sec.subtitulo) badgesArr[autoPageIdx].add(sec.titulo);
+          }
+        });
+
+        for (let i = 0; i < pages.length; i++) {
+          if (!pages[i]) pages[i] = [];
+        }
+
+        return pages;
+      }
+
+      const leftSis = S.secciones.map((_, i) => i).filter(si => (S.secciones[si].columna || 'left') !== 'right');
+      const rightSis = S.secciones.map((_, i) => i).filter(si => S.secciones[si].columna === 'right');
+
+      const leftByPage = pack(leftSis);
+      const rightByPage = pack(rightSis);
+
+      // Build si → pageNum (1-based) map
+      const secPage = {};
+      leftByPage.forEach((pg, pi) => pg.forEach(si => { secPage[si] = pi + 1; }));
+      rightByPage.forEach((pg, pi) => pg.forEach(si => { secPage[si] = pi + 1; }));
+
+      _layout = { leftByPage, rightByPage, secPage };
+    }
+
+    // ─── RENDER ALL ────────────────────────────────────────────────────
+    function renderAll() {
+      computeLayout();   // synchronous DOM measurement + packing
+      applyTheme(S.theme);
+      buildCanvas();
+      renderSidebar();
+      renderPagesSummary();
+    }
+
+    // ─── CANVAS BUILDER ───────────────────────────────────────────────
+    function buildCanvas() {
+      const area = document.getElementById('canvas-area');
+      area.innerHTML = '';
+
+      const totalPages = Math.max(_layout.leftByPage.length, _layout.rightByPage.length, 1);
+      document.getElementById('lbl-pages').textContent = totalPages === 1 ? '1 hoja' : `${totalPages} hojas`;
+
+      for (let p = 0; p < totalPages; p++) {
+        if (p > 0) {
+          const gap = document.createElement('div');
+          gap.className = 'no-print flex items-center justify-center py-3 w-full';
+          const pClass = PAGE_COLORS[p % PAGE_COLORS.length];
+          gap.innerHTML = `<span class="${pClass} text-[11px] font-black px-4 py-1 rounded-full shadow-sm">Hoja ${p + 1}</span>`;
+          area.appendChild(gap);
+        }
+        area.appendChild(buildPage(p));
+      }
+    }
+
+    function buildPage(pageIdx) {
+      const div = document.createElement('div');
+      div.className = `print-page ${S.theme === 'dark' ? 'theme-dark' : 'theme-cream'} rounded-sm`;
+      div.style.setProperty('--pfs', S.fontSize + 'px');
+      div.style.setProperty('--ig', S.itemGap + 'em');
+      div.style.setProperty('--pp', S.padding + 'em');
+
+      div.innerHTML = `
+    <!-- Corner marks -->
+    <div class="absolute top-[0.55em] left-[0.55em]  w-3 h-3 border-t-2 border-l-2 border-current opacity-25 pointer-events-none"></div>
+    <div class="absolute top-[0.55em] right-[0.55em] w-3 h-3 border-t-2 border-r-2 border-current opacity-25 pointer-events-none"></div>
+    <div class="absolute bottom-[0.55em] left-[0.55em]  w-3 h-3 border-b-2 border-l-2 border-current opacity-25 pointer-events-none"></div>
+    <div class="absolute bottom-[0.55em] right-[0.55em] w-3 h-3 border-b-2 border-r-2 border-current opacity-25 pointer-events-none"></div>
+
+    <!-- HEADER -->
+    <header class="shrink-0 bg-brand-orange text-white px-[1.4em] py-[0.7em] flex items-center justify-between rounded-sm shadow-sm mb-[1em] relative overflow-hidden">
+      <div class="absolute inset-0 opacity-10 bg-[linear-gradient(45deg,#fff_25%,transparent_25%,transparent_50%,#fff_50%,#fff_75%,transparent_75%,transparent)] bg-[length:14px_14px]"></div>
+      <div class="relative z-10">
+        <h1 class="pg-name font-serif font-black tracking-[0.12em] text-[2.4em] leading-none uppercase drop-shadow-sm">${S.info.restaurantName}</h1>
+        <p class="pg-tagline text-[0.65em] tracking-[0.28em] font-sans font-light uppercase opacity-90 mt-0.5">${S.info.tagline}</p>
+      </div>
+      <div class="relative z-10 bg-white p-1 rounded-full shadow-md h-[4em] w-[4em] flex items-center justify-center">
+        <img class="pg-logo h-full w-full object-contain" src="${S.customLogo || 'LOGO.png'}" alt="Logo">
+      </div>
+    </header>
+
+    <!-- BODY -->
+    <div class="flex-1 grid grid-cols-2 gap-[1.3em] relative overflow-hidden">
+      <div class="pg-divider absolute left-1/2 top-[0.5em] bottom-[0.5em] w-0 border-r border-dashed border-current opacity-20 -translate-x-1/2 pointer-events-none ${S.showDivider ? '' : 'hidden'}"></div>
+      <div class="col-left  flex flex-col gap-[1em] pr-[0.6em] z-10"></div>
+      <div class="col-right flex flex-col gap-[1em] pl-[0.6em] z-10"></div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="shrink-0 mt-[0.7em] pt-[0.7em] border-t border-dashed border-brand-orange/40 flex items-center justify-between relative">
+      <div class="flex flex-col items-start select-none">
+        <div class="bg-brand-orange text-white px-3 py-0.5 font-sans font-bold text-[0.75em] tracking-wide rounded-sm uppercase shadow-sm">HAZ TU PEDIDO</div>
+        <div class="flex items-center gap-1.5 mt-1.5 font-sans font-bold text-[1em]">
+          <svg class="w-3.5 h-3.5 text-brand-orange shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.704 1.459h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          <span class="pg-phone">${S.info.phone}</span>
+        </div>
+      </div>
+      <div class="pg-extra text-center italic text-[0.75em] font-sans font-medium opacity-80 max-w-[36%] leading-tight">${S.info.extraNote}</div>
+      <div class="flex items-center gap-2.5 select-none">
+        <div class="flex flex-col items-end text-[0.72em] font-sans font-bold gap-1">
+          <div class="flex items-center gap-1">
+            <svg class="w-3 h-3 text-brand-orange" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+            <span class="pg-ig">${S.info.instagram}</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <svg class="w-3 h-3 text-brand-orange" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c4.56-.93 8-4.96 8-9.75z"/></svg>
+            <span class="pg-fb">${S.info.facebook}</span>
+          </div>
+        </div>
+        <div class="bg-white p-0.5 rounded border border-brand-orange/30 shadow-sm">
+          <img class="pg-qr w-[3em] h-[3em] object-contain" src="${qrSrc()}" alt="QR">
+        </div>
+      </div>
+      <!-- Decorative sandwich -->
+      <div class="absolute right-[10em] bottom-[-0.4em] pointer-events-none opacity-[0.12] text-brand-orange">
+        <svg viewBox="0 0 120 80" class="w-24 h-16 fill-none stroke-current stroke-[1.2] stroke-linecap-round stroke-linejoin-round -rotate-[12deg]">
+          <path d="M15,55 C5,50 5,40 15,35 L95,15 C105,12 112,20 110,30 L95,58 C90,65 80,68 75,65 Z"/>
+          <path d="M30,42 L42,32"/><path d="M48,38 L60,28"/><path d="M66,34 L78,24"/><path d="M84,30 L96,20"/>
+        </svg>
+      </div>
+    </footer>
+  `;
+
+      // Populate columns from layout
+      const fmt = v => (v || v === 0) ? '$ ' + Number(v).toLocaleString('es-CO') : '';
+      const colL = div.querySelector('.col-left');
+      const colR = div.querySelector('.col-right');
+
+      function fillCol(colEl, secsByPage) {
+        const pageSis = (secsByPage[pageIdx] || []);
+        const rendered = new Set();
+        pageSis.forEach(si => {
+          const sec = S.secciones[si];
+          const active = sec.items.filter(i => i.disponible);
+          if (!active.length) return;
+          if (!sec.subtitulo) {
+            colEl.appendChild(buildBadge(sec.titulo));
+            colEl.appendChild(buildItemList(sec, active, fmt));
+          } else {
+            if (!rendered.has(sec.titulo)) {
+              colEl.appendChild(buildBadge(sec.titulo));
+              rendered.add(sec.titulo);
+            }
+            colEl.appendChild(buildSubGroup(sec, active, fmt));
+          }
+        });
+      }
+
+      fillCol(colL, _layout.leftByPage);
+      fillCol(colR, _layout.rightByPage);
+      return div;
+    }
+
+    // ─── SECTION DOM BUILDERS ─────────────────────────────────────────
+    function buildBadge(titulo) {
+      const w = document.createElement('div');
+      w.className = 'relative flex items-center justify-center py-1.5 px-4 mb-[0.65em] shrink-0';
+      w.innerHTML = `
+    <svg class="absolute inset-0 w-full h-full text-brand-navy fill-current" viewBox="0 0 300 50" preserveAspectRatio="none">
+      <path d="M12,9 C45,7 82,6 120,6 C165,6 210,7 255,8 C272,8 285,10 292,13 C296,15 298,18 295,22 C291,28 294,33 291,39 C288,43 275,44 260,45 C215,47 165,47 115,46 C75,45 35,44 15,42 C8,41 4,38 3,34 C1,29 2,24 4,18 C6,13 8,10 12,9 Z"/>
+    </svg>
+    <h2 class="relative z-10 font-serif font-bold text-yellow-400 tracking-[0.14em] text-center uppercase text-[1.05em] leading-tight">${titulo}</h2>
+  `;
+      return w;
+    }
+
+    function buildItemList(sec, activeItems, fmt) {
+      const list = document.createElement('div');
+      list.className = 'flex flex-col';
+      activeItems.forEach(item => {
+        const d = document.createElement('div');
+        d.className = 'menu-item-gap break-inside-avoid flex flex-col';
+        const hasDesc = sec.tipo !== 'compact' && item.ingredientes && String(item.ingredientes).trim() !== '';
+        if (hasDesc) {
+          d.innerHTML = `
+        <div class="flex justify-between items-baseline font-sans font-bold text-[0.92em] leading-tight">
+          <span class="uppercase tracking-wide">${item.nombre}</span>
+          <span class="shrink-0 pl-2 text-brand-orange text-[0.92em]">${fmt(item.precio)}</span>
+        </div>
+        <p class="font-sans font-light text-[0.73em] leading-snug mt-0.5 opacity-85">${item.ingredientes}</p>`;
+        } else {
+          d.innerHTML = `
+        <div class="flex items-baseline font-sans text-[0.85em] font-semibold leading-snug gap-1">
+          <span class="uppercase tracking-wide text-[0.9em] shrink-0">${item.nombre}</span>
+          <span class="flex-1 border-b border-dotted border-current opacity-20 self-end pb-0.5 min-w-2"></span>
+          <span class="shrink-0 text-brand-orange font-bold text-[0.88em]">${fmt(item.precio)}</span>
+        </div>`;
+        }
+        list.appendChild(d);
+      });
+      return list;
+    }
+
+    function buildSubGroup(sec, activeItems, fmt) {
+      const w = document.createElement('div');
+      w.className = 'flex flex-col mb-[0.5em]';
+      const h3 = document.createElement('h3');
+      h3.className = 'font-serif font-bold text-[0.82em] tracking-wider uppercase pb-0.5 mb-1 border-b border-dashed border-current opacity-60';
+      h3.textContent = sec.subtitulo;
+      w.appendChild(h3);
+      w.appendChild(buildItemList(sec, activeItems, fmt));
+      return w;
+    }
+
+    // ─── FOOTER / INFO UPDATES ────────────────────────────────────────
+    function updateAllFooters() {
+      document.querySelectorAll('.pg-name').forEach(e => e.textContent = S.info.restaurantName);
+      document.querySelectorAll('.pg-tagline').forEach(e => e.textContent = S.info.tagline);
+      document.querySelectorAll('.pg-phone').forEach(e => e.textContent = S.info.phone);
+      document.querySelectorAll('.pg-ig').forEach(e => e.textContent = S.info.instagram);
+      document.querySelectorAll('.pg-fb').forEach(e => e.textContent = S.info.facebook);
+      document.querySelectorAll('.pg-extra').forEach(e => e.textContent = S.info.extraNote);
+    }
+    function updateAllQRs() { document.querySelectorAll('.pg-qr').forEach(e => e.src = qrSrc()); }
+    function updateAllLogos() { document.querySelectorAll('.pg-logo').forEach(e => e.src = S.customLogo || 'LOGO.png'); }
+    function qrSrc() {
+      return S.customQr || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(S.info.qrUrl || 'https://instagram.com/klisandwich')}`;
+    }
+
+    // ─── PAGES SUMMARY ────────────────────────────────────────────────
+    function renderPagesSummary() {
+      const c = document.getElementById('pages-summary');
+      const total = Math.max(_layout.leftByPage.length, _layout.rightByPage.length, 1);
+      c.innerHTML = '';
+      for (let p = 0; p < total; p++) {
+        const lSis = _layout.leftByPage[p] || [];
+        const rSis = _layout.rightByPage[p] || [];
+        const allSis = [...lSis, ...rSis];
+        const items = allSis.reduce((a, si) => a + S.secciones[si].items.filter(i => i.disponible).length, 0);
+        const pc = PAGE_COLORS[p % PAGE_COLORS.length];
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2';
+        row.innerHTML = `
+      <span class="${pc} text-[9px] font-black px-2 py-0.5 rounded shrink-0">Hoja ${p + 1}</span>
+      <span class="text-[11px] text-slate-600">${allSis.length} sección${allSis.length !== 1 ? 'es' : ''} · ${items} ítems</span>
+    `;
+        c.appendChild(row);
+      }
+    }
+
+    // ─── SIDEBAR SECTIONS ─────────────────────────────────────────────
+    function renderSidebar() {
+      const list = document.getElementById('sec-list');
+      list.innerHTML = '';
+
+      S.secciones.forEach((sec, si) => {
+        const card = document.createElement('div');
+        card.className = 'sec-card bg-white border border-slate-200 rounded-xl overflow-hidden transition';
+        const label = sec.subtitulo ? `${sec.titulo} — ${sec.subtitulo}` : sec.titulo;
+        const pg = _layout.secPage[si] || '?';
+        const pgClass = PAGE_COLORS[((pg || 1) - 1) % PAGE_COLORS.length];
+        const colBadge = sec.columna === 'right'
+          ? `<span class="bg-purple-100 text-purple-700 text-[9px] font-bold px-1.5 py-0.5 rounded">Der.</span>`
+          : `<span class="bg-blue-100   text-blue-700   text-[9px] font-bold px-1.5 py-0.5 rounded">Izq.</span>`;
+        const active = sec.items.filter(i => i.disponible).length;
+
+        card.innerHTML = `
+      <div class="flex items-center gap-1.5 px-2.5 py-2 bg-slate-50 border-b border-slate-200">
+        <span class="${pgClass} text-[9px] font-black px-1.5 py-0.5 rounded shrink-0 select-none">H${pg}</span>
+        <button onclick="toggleAcc(${si})" class="flex-1 text-left min-w-0">
+          <p class="font-bold text-xs text-slate-800 truncate">${label}</p>
+          <p class="text-[10px] text-slate-400">${active}/${sec.items.length} activos</p>
+        </button>
+        <div class="flex items-center gap-0.5 shrink-0">
+          ${colBadge}
+          <button onclick="moveSection(${si},-1)" class="p-1 text-slate-300 hover:text-slate-600 ${si === 0 ? 'opacity-20 pointer-events-none' : ''}">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+          </button>
+          <button onclick="moveSection(${si},1)" class="p-1 text-slate-300 hover:text-slate-600 ${si === S.secciones.length - 1 ? 'opacity-20 pointer-events-none' : ''}">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <button onclick="openEditModal(${si})" class="p-1 text-brand-orange hover:text-brand-darkOrange">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </button>
+          <button onclick="deleteSection(${si})" class="p-1 text-red-400 hover:text-red-600">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+          <button onclick="toggleAcc(${si})" id="arr-${si}" class="p-1 text-slate-300 hover:text-slate-600">
+            <svg class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="acc-${si}" class="hidden">
+        <div id="ilist-${si}" class="p-2.5 space-y-1.5 max-h-72 overflow-y-auto"></div>
+        <div class="px-2.5 pb-2.5">
+          <button onclick="addItem(${si})" class="w-full border border-dashed border-brand-orange text-brand-orange text-[11px] font-bold py-1.5 rounded-lg hover:bg-orange-50 transition flex items-center justify-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            Agregar producto
+          </button>
+        </div>
+      </div>
+    `;
+        list.appendChild(card);
+        renderItems(si);
+      });
+    }
+
+    function renderItems(si) {
+      const sec = S.secciones[si];
+      const c = document.getElementById(`ilist-${si}`);
+      if (!c) return;
+      c.innerHTML = '';
+      sec.items.forEach((item, ii) => {
+        const card = document.createElement('div');
+        card.className = `border border-slate-100 rounded-lg p-2 bg-slate-50 hover:bg-white transition ${item.disponible ? '' : 'opacity-50'}`;
+        card.innerHTML = `
+      <div class="flex items-start gap-1.5 mb-1.5">
+        <input type="text" value="${esc(item.nombre)}" oninput="updateItem(${si},${ii},'nombre',this.value)"
+          class="flex-1 text-xs font-semibold bg-transparent border-b border-transparent hover:border-slate-300 focus:border-brand-orange outline-none px-0.5 py-0.5 transition leading-tight">
+        <div class="flex items-center gap-0.5 shrink-0">
+          <input type="checkbox" ${item.disponible ? 'checked' : ''} onchange="updateItem(${si},${ii},'disponible',this.checked)" title="Visible" class="w-3.5 h-3.5 accent-brand-orange cursor-pointer">
+          <button onclick="moveItem(${si},${ii},-1)" class="text-slate-300 hover:text-slate-600 ${ii === 0 ? 'opacity-20 pointer-events-none' : ''}">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+          </button>
+          <button onclick="moveItem(${si},${ii},1)" class="text-slate-300 hover:text-slate-600 ${ii === sec.items.length - 1 ? 'opacity-20 pointer-events-none' : ''}">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <button onclick="deleteItem(${si},${ii})" class="text-red-400 hover:text-red-600">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-1.5">
+        <div>
+          <label class="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Precio</label>
+          <input type="number" value="${item.precio}" oninput="updateItem(${si},${ii},'precio',this.value)"
+            class="w-full text-[11px] font-bold border border-slate-200 rounded px-1 py-0.5 text-brand-darkOrange bg-white outline-none focus:ring-1 focus:ring-brand-orange">
+        </div>
+        <div class="col-span-2">
+          <label class="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Descripción</label>
+          <textarea oninput="updateItem(${si},${ii},'ingredientes',this.value)"
+            class="w-full text-[10px] border border-slate-200 rounded px-1 py-0.5 bg-white outline-none focus:ring-1 focus:ring-brand-orange resize-none h-6 focus:h-14 transition-all leading-snug"
+            placeholder="Sin descripción">${esc(item.ingredientes || '')}</textarea>
+        </div>
+      </div>
+    `;
+        c.appendChild(card);
+      });
+    }
+
+    // ─── ACCORDION ───────────────────────────────────────────────────
+    function toggleAcc(si) {
+      const acc = document.getElementById(`acc-${si}`);
+      const arr = document.getElementById(`arr-${si}`);
+      const isOpen = !acc.classList.contains('hidden');
+      document.querySelectorAll('[id^="acc-"]').forEach(e => e.classList.add('hidden'));
+      document.querySelectorAll('[id^="arr-"]').forEach(e => { const s = e.querySelector('svg'); if (s) s.style.transform = ''; });
+      if (!isOpen) {
+        acc.classList.remove('hidden');
+        const svg = arr && arr.querySelector('svg');
+        if (svg) svg.style.transform = 'rotate(180deg)';
+      }
+    }
+
+    // ─── SECTION CRUD ─────────────────────────────────────────────────
+    function openAddModal() {
+      document.getElementById('modal-title').textContent = 'Nueva Sección';
+      document.getElementById('m-titulo').value = '';
+      document.getElementById('m-subtitulo').value = '';
+      document.getElementById('m-edit-idx').value = '-1';
+      document.querySelector('input[name="m-col"][value="left"]').checked = true;
+      document.querySelector('input[name="m-tipo"][value="full"]').checked = true;
+      document.getElementById('m-pagina').value = 'auto';
+      document.getElementById('modal-bg').classList.remove('hidden');
+      document.getElementById('m-titulo').focus();
+    }
+
+    function openEditModal(si) {
+      const sec = S.secciones[si];
+      document.getElementById('modal-title').textContent = 'Editar Sección';
+      document.getElementById('m-titulo').value = sec.titulo;
+      document.getElementById('m-subtitulo').value = sec.subtitulo || '';
+      document.getElementById('m-edit-idx').value = si;
+      document.querySelector(`input[name="m-col"][value="${sec.columna || 'left'}"]`).checked = true;
+      document.querySelector(`input[name="m-tipo"][value="${sec.tipo || 'full'}"]`).checked = true;
+      document.getElementById('m-pagina').value = sec.pagina ? String(sec.pagina) : 'auto';
+      document.getElementById('modal-bg').classList.remove('hidden');
+      document.getElementById('m-titulo').focus();
+    }
+
+    function closeModal() { document.getElementById('modal-bg').classList.add('hidden'); }
+
+    function saveSection() {
+      const titulo = document.getElementById('m-titulo').value.trim().toUpperCase();
+      const subtitulo = document.getElementById('m-subtitulo').value.trim().toUpperCase() || undefined;
+      const columna = document.querySelector('input[name="m-col"]:checked').value;
+      const tipo = document.querySelector('input[name="m-tipo"]:checked').value;
+      const rawPagina = document.getElementById('m-pagina').value;
+      const pagina = rawPagina === 'auto' ? undefined : parseInt(rawPagina, 10);
+      const editIdx = parseInt(document.getElementById('m-edit-idx').value);
+      if (!titulo) { document.getElementById('m-titulo').focus(); return; }
+
+      if (editIdx === -1) {
+        const id = titulo.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now();
+        S.secciones.push({ id, titulo, subtitulo, columna, tipo, pagina, items: [] });
+        const ni = S.secciones.length - 1;
+        closeModal(); scheduleRender(true);
+        setTimeout(() => toggleAcc(ni), 200);
+      } else {
+        Object.assign(S.secciones[editIdx], { titulo, subtitulo, columna, tipo, pagina });
+        closeModal(); scheduleRender(true);
+      }
+    }
+
+    function deleteSection(si) {
+      if (!confirm(`¿Eliminar "${S.secciones[si].titulo}"?`)) return;
+      S.secciones.splice(si, 1);
+      scheduleRender(true);
+    }
+
+    function moveSection(si, dir) {
+      const ni = si + dir;
+      if (ni < 0 || ni >= S.secciones.length) return;
+      [S.secciones[si], S.secciones[ni]] = [S.secciones[ni], S.secciones[si]];
+      scheduleRender(true);
+    }
+
+    // ─── ITEM CRUD ────────────────────────────────────────────────────
+    function addItem(si) {
+      S.secciones[si].items.push({ nombre: "NUEVO PRODUCTO", ingredientes: "", precio: 10000, disponible: true });
+      scheduleRender(true);
+      // Keep accordion open
+      setTimeout(() => {
+        const acc = document.getElementById(`acc-${si}`);
+        if (acc) acc.classList.remove('hidden');
+      }, 200);
+    }
+
+    function updateItem(si, ii, field, value) {
+      if (field === 'precio') value = Number(value) || 0;
+      S.secciones[si].items[ii][field] = value;
+      scheduleRender(true);
+    }
+
+    function deleteItem(si, ii) {
+      if (!confirm('¿Eliminar este producto?')) return;
+      S.secciones[si].items.splice(ii, 1);
+      scheduleRender(true);
+    }
+
+    function moveItem(si, ii, dir) {
+      const ni = ii + dir; const items = S.secciones[si].items;
+      if (ni < 0 || ni >= items.length) return;
+      [items[ii], items[ni]] = [items[ni], items[ii]];
+      scheduleRender(true);
+    }
+
+    // ─── THEME ────────────────────────────────────────────────────────
+    function applyTheme(t) {
+      S.theme = t;
+      document.querySelectorAll('.print-page').forEach(el => {
+        el.classList.toggle('theme-cream', t === 'cream');
+        el.classList.toggle('theme-dark', t === 'dark');
+      });
+      document.getElementById('btn-cream').classList.toggle('border-brand-orange', t === 'cream');
+      document.getElementById('btn-cream').classList.toggle('border-slate-300', t !== 'cream');
+      document.getElementById('btn-dark').classList.toggle('border-brand-orange', t === 'dark');
+      document.getElementById('btn-dark').classList.toggle('border-slate-300', t !== 'dark');
+    }
+    function setTheme(t) { S.theme = t; scheduleRender(true); }
+
+    // ─── LOGO / QR ────────────────────────────────────────────────────
+    function handleLogoUpload(e) {
+      const f = e.target.files[0]; if (!f) return;
+      const r = new FileReader();
+      r.onload = ev => { S.customLogo = ev.target.result; updateAllLogos(); document.getElementById('btn-rl').classList.remove('hidden'); save(); };
+      r.readAsDataURL(f);
+    }
+    function resetLogo() { S.customLogo = null; document.getElementById('logo-upload').value = ''; updateAllLogos(); document.getElementById('btn-rl').classList.add('hidden'); save(); }
+    function handleQrUpload(e) {
+      const f = e.target.files[0]; if (!f) return;
+      const r = new FileReader();
+      r.onload = ev => { S.customQr = ev.target.result; updateAllQRs(); document.getElementById('btn-rq').classList.remove('hidden'); save(); };
+      r.readAsDataURL(f);
+    }
+    function resetQr() { S.customQr = null; document.getElementById('qr-upload').value = ''; updateAllQRs(); document.getElementById('btn-rq').classList.add('hidden'); save(); }
+
+    // ─── TABS ─────────────────────────────────────────────────────────
+    function showTab(id) {
+      ['t-design', 't-brand', 't-sections'].forEach(t => document.getElementById(t).classList.toggle('hidden', t !== id));
+      ['btn-t-design', 'btn-t-brand', 'btn-t-sections'].forEach(b => {
+        const active = b.replace('btn-t-', 't-') === id;
+        document.getElementById(b).classList.toggle('text-brand-orange', active);
+        document.getElementById(b).classList.toggle('border-brand-orange', active);
+        document.getElementById(b).classList.toggle('text-slate-500', !active);
+        document.getElementById(b).classList.toggle('border-transparent', !active);
+      });
+    }
+
+    // ─── HELPERS ──────────────────────────────────────────────────────
+    function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+    // ─── EXPORT / RESET ───────────────────────────────────────────────
+    function exportJson() {
+      const a = document.createElement('a');
+      a.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify({ info: S.info, secciones: S.secciones }, null, 2));
+      a.download = 'carta.json'; document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    function resetAll() {
+      if (!confirm('¿Restaurar la carta a los valores originales? Se perderán todos los cambios.')) return;
+      localStorage.removeItem('kli_carta_v4');
+      S.info = { ...DEFAULTS.info };
+      S.secciones = JSON.parse(JSON.stringify(DEFAULTS.secciones));
+      S.theme = 'cream'; S.fontSize = 12.5; S.itemGap = 0.55; S.padding = 2.2; S.showDivider = true;
+      S.customLogo = null; S.customQr = null;
+      document.getElementById('logo-upload').value = '';
+      document.getElementById('qr-upload').value = '';
+
+      // Si estamos usando Google Sheets, al restaurar base debería intentar leer de nuevo
+      const url = "PEGAR_URL_AQUI_CUANDO_ESTE_LISTA";
+      if (url.startsWith("http")) {
+        window.location.reload();
+        return;
+      }
+
+      syncUI(); scheduleRender(true);
+    }
+
+    function transformarDatosDeSheets(rows) {
+      const secMap = new Map();
+
+      rows.forEach(row => {
+        const secName = (row.Seccion || row.SECCION || "").trim();
+        if (!secName) return;
+
+        const secId = secName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        if (!secMap.has(secId)) {
+          secMap.set(secId, {
+            id: secId,
+            titulo: secName.toUpperCase(),
+            columna: (row.Posicion || row.POSICION || "left").trim().toLowerCase(),
+            tipo: "full",
+            items: []
+          });
+        }
+
+        const nombre = (row.Plato || row.PLATO || "").trim();
+        if (nombre) {
+          const rawPrecio = (row.Precio || row.PRECIO || "0").toString().replace(/[^0-9.]/g, '');
+          const precio = parseFloat(rawPrecio) || 0;
+          const disp = (row.Disponible || row.DISPONIBLE || "SI").trim().toUpperCase();
+
+          secMap.get(secId).items.push({
+            nombre: nombre,
+            ingredientes: (row.Ingredientes || row.INGREDIENTES || "").trim(),
+            precio: precio,
+            disponible: disp === "SI" || disp === "TRUE" || disp === "SÍ"
+          });
+        }
+      });
+
+      return Array.from(secMap.values());
+    }
+  </script>
+</body>
+
+</html>
