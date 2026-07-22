@@ -1296,10 +1296,14 @@
           else if (col === "izquierda" || col === "izq") col = "left";
           else if (col !== "right") col = "left"; // Fallback a left
 
+          let paginaStr = (row.pagina || row.hoja || "").toString().trim();
+          let paginaNum = parseInt(paginaStr, 10);
+          
           secMap.set(secId, {
             id: secId,
             titulo: secName.toUpperCase(),
             columna: col,
+            pagina: isNaN(paginaNum) ? undefined : paginaNum,
             tipo: "full",
             items: []
           });
