@@ -98,6 +98,44 @@
       },
     }
   </script>
+
+  <style>
+    #cart-button {
+      position: fixed;
+      bottom: 80px;
+      right: 24px;
+      z-index: 70;
+    }
+
+    #cart-panel {
+      position: fixed;
+      right: 0;
+      top: 0;
+      width: min(420px, 100%);
+      height: 100vh;
+      z-index: 100;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    }
+
+    #cart-panel.open {
+      transform: translateX(0);
+    }
+
+    #cart-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .7);
+      z-index: 90;
+      display: none;
+    }
+
+    #cart-overlay.open {
+      display: block;
+    }
+  </style>
+
+
 </head>
 
 <body class="bg-background text-on-background font-body-md selection:bg-primary-container selection:text-white">
@@ -196,13 +234,15 @@
             <p class="text-on-surface-variant text-sm mb-6 flex-grow">Jugosa falda de res desmechada a mano en fondo de
               hierbas criollas, con láminas de plátano maduro caramelizado y queso mozzarella fundido. Servida sobre
               lechuga fresca, tomate chonto curado y bañada en nuestro aderezo gourmet de ajo suave.</p>
-            <a href="https://wa.me/573508485527?text=Hola!%20Me%20gustaría%20ordenar%20el%20sándwich%20El%20Desmechado%20de%20Barrio"
-              target="_blank"
-              class="w-full bg-[#c16b02] text-white font-label-lg py-3 hover:bg-primary-container transition-all active:scale-95 shadow-[4px_4px_0px_0px_#263564] block text-center">
+
+            <button onclick="addToCart('EL DESMECHADO DE BARRIO', 24900)"
+              class="w-full bg-[#c16b02] text-white font-label-lg py-3 hover:bg-primary-container transition-all active:scale-95 shadow-[4px_4px_0px_0px_#263564]">
               AGREGAR
-            </a>
+            </button>
+
           </div>
         </div>
+
         <!-- Sandwich Card 2 -->
         <div
           class="bg-surface-container rounded-lg overflow-hidden flex flex-col group shadow-[4px_4px_0px_0px_#4c2700]">
@@ -219,11 +259,12 @@
             <p class="text-on-surface-variant text-sm mb-6 flex-grow">Jugosa pulpa de cerdo marinada 8 horas en cerveza
               y panela, bañada en barbacoa criolla y queso mozzarella gratinado. Acompañada de tomate chonto, lechuga
               crujiente y una lluvia de zanahoria para el contraste perfecto en pan artesanal.</p>
-            <a href="https://wa.me/573508485527?text=Hola!%20Me%20gustaría%20ordenar%20el%20sándwich%20El%20Panela%20Ahumado"
-              target="_blank"
-              class="w-full bg-[#c16b02] text-white font-label-lg py-3 hover:bg-primary-container transition-all active:scale-95 shadow-[4px_4px_0px_0px_#263564] block text-center">
+
+            <button onclick="addToCart('EL PANELA AHUMADO', 24200)"
+              class="w-full bg-[#c16b02] text-white font-label-lg py-3 hover:bg-primary-container transition-all active:scale-95 shadow-[4px_4px_0px_0px_#263564]">
               AGREGAR
-            </a>
+            </button>
+
           </div>
         </div>
         <!-- Sandwich Card 3 -->
@@ -245,11 +286,12 @@
               queso Colby Jack fundido y aderezada con nuestra cremosa salsa del chef a base de yogurt griego y mostaza
               Dijon. Acompañada
               de tomate chonto fresco y lechuga crujiente en pan campesino artesanal horneado con finas hierbas.</p>
-            <a href="https://wa.me/573508485527?text=Hola!%20Me%20gustaría%20ordenar%20el%20sándwich%20El%20Tallador"
-              target="_blank"
-              class="w-full bg-[#c16b02] text-white font-label-lg py-3 hover:bg-primary-container transition-all active:scale-95 shadow-[4px_4px_0px_0px_#263564] block text-center">
+
+            <button onclick="addToCart('EL TALLADOR', 27100)"
+              class="w-full bg-[#c16b02] text-white font-label-lg py-3 hover:bg-primary-container transition-all active:scale-95 shadow-[4px_4px_0px_0px_#263564]">
               AGREGAR
-            </a>
+            </button>
+
           </div>
         </div>
         <!-- Sandwich Card 4 -->
@@ -268,11 +310,10 @@
             <p class="text-on-surface-variant text-sm mb-6 flex-grow">Jamones (pavo, cerdo y pavo ahumado) con queso
               mozzarella fundido. Acompañado de tomate chonto fresco, lechuga de la sabana bien crujiente y nuestra
               cremosa salsa de ajo artesanal en pan recién tostado.</p>
-            <a href="https://wa.me/573508485527?text=Hola!%20Me%20gustaría%20ordenar%20el%20sándwich%20El%20Trifásico"
-              target="_blank"
-              class="w-full bg-[#c16b02] text-white font-label-lg py-3 hover:bg-primary-container transition-all active:scale-95 shadow-[4px_4px_0px_0px_#263564] block text-center">
+            <button onclick="addToCart('EL TRIFÁSICO', 16900)"
+              class="w-full bg-[#c16b02] text-white font-label-lg py-3 hover:bg-primary-container transition-all active:scale-95 shadow-[4px_4px_0px_0px_#263564]">
               AGREGAR
-            </a>
+            </button>
           </div>
         </div>
         <!-- Repeat or mock remaining 4 cards for grid density -->
@@ -288,9 +329,11 @@
             <h3 class="font-headline-md text-xl mb-2 text-white">EL MEDITERRANEO</h3>
             <p class="text-on-surface-variant text-sm mb-6 flex-grow">Jamón serrano y queso Colby Jack gratinado
               con pesto artesanal de albahaca fresca y aceitunas rellenas de queso. Complementado con tomate chonto,
-              lechuga de la sabana bien crujiente y servido en pan artesanal horneado con finas hierbas.</p><a
-              href="https://wa.me/573508485527?text=Hola!%20Me%20gustaría%20ordenar%20el%20sándwich%20El%20Mediterráneo"
-              target="_blank" class="w-full bg-[#c16b02] text-white font-label-lg py-3 block text-center">AGREGAR</a>
+              lechuga de la sabana bien crujiente y servido en pan artesanal horneado con finas hierbas.</p>
+            <button onclick="addToCart('EL MEDITERRANEO', 27900)"
+              class="w-full bg-[#c16b02] text-white font-label-lg py-3 hover:bg-primary-container transition-all active:scale-95 shadow-[4px_4px_0px_0px_#263564]">
+              AGREGAR
+            </button>
           </div>
         </div>
         <div
@@ -305,9 +348,13 @@
             <h3 class="font-headline-md text-xl mb-2 text-white">EL HAWAIANO ESPECIAL</h3>
             <p class="text-on-surface-variant text-sm mb-6 flex-grow">Jamón de pavo con queso mozzarella y
               trocitos de piña caramelizada a la canela. Acompañado de tomate chonto fresco, lechuga de la sabana bien
-              crujiente y nuestra infaltable salsa de ajo artesanal en pan recién tostado.</p><a
-              href="https://wa.me/573508485527?text=Hola!%20Me%20gustaría%20ordenar%20el%20sándwich%20El%20Hawaiano%20Especial"
-              target="_blank" class="w-full bg-[#c16b02] text-white font-label-lg py-3 block text-center">AGREGAR</a>
+              crujiente y nuestra infaltable salsa de ajo artesanal en pan recién tostado.</p>
+
+            <button onclick="addToCart('EL HAWAIANO ESPECIAL', 20900)"
+              class="w-full bg-[#c16b02] text-white font-label-lg py-3 hover:bg-primary-container transition-all active:scale-95 shadow-[4px_4px_0px_0px_#263564]">
+              AGREGAR
+            </button>
+
           </div>
         </div>
         <div
@@ -324,8 +371,12 @@
             <p class="text-on-surface-variant text-sm mb-6 flex-grow">Jugosa pulpa de cerdo ahumada y desmechada, bañada
               en barbacoa picante sobre una cremosa capa de frijoles refritos y queso mozzarella fundido. Acompañada de
               tomate chonto fresco, lechuga de la sabana crujiente y nuestra icónica salsa de ajo y pan artesanal.</p>
-            <a href="https://wa.me/573508485527?text=Hola!%20Me%20gustaría%20ordenar%20el%20sándwich%20El%20Rey%20Azteca"
-              target="_blank" class="w-full bg-[#c16b02] text-white font-label-lg py-3 block text-center">AGREGAR</a>
+
+            <button onclick="addToCart('EL REY AZTECA', 25200)"
+              class="w-full bg-[#c16b02] text-white font-label-lg py-3 hover:bg-primary-container transition-all active:scale-95 shadow-[4px_4px_0px_0px_#263564]">
+              AGREGAR
+            </button>
+
           </div>
         </div>
         <div
@@ -341,9 +392,13 @@
             <p class="text-on-surface-variant text-sm mb-6 flex-grow">Deliciosa pulpa de cerdo cocinada lentamente en
               reducción de cerveza y panela, con mermelada artesanal de pimentón y queso mozzarella.
               Acompañada de tomate chonto fresco y lechuga crujiente de la sabana en pan artesanal sellado con aceite de
-              oliva.</p><a
-              href="https://wa.me/573508485527?text=Hola!%20Me%20gustaría%20ordenar%20el%20sándwich%20El%20Carmesí"
-              target="_blank" class="w-full bg-[#c16b02] text-white font-label-lg py-3 block text-center">AGREGAR</a>
+              oliva.</p>
+
+            <button onclick="addToCart('EL CARMESÍ', 23900)"
+              class="w-full bg-[#c16b02] text-white font-label-lg py-3 hover:bg-primary-container transition-all active:scale-95 shadow-[4px_4px_0px_0px_#263564]">
+              AGREGAR
+            </button>
+
           </div>
         </div>
       </div>
@@ -618,6 +673,327 @@
       <span class="font-epilogue text-[10px] font-bold uppercase">Account</span>
     </a>
   </nav>
+
+  ```html
+  <!-- CARRITO -->
+
+  <!-- Fondo oscuro -->
+  <div id="cart-overlay" onclick="closeCart()"></div>
+
+  <!-- Panel lateral del carrito -->
+  <div id="cart-panel" class="bg-stone-950 text-white shadow-2xl flex flex-col">
+
+    <!-- Encabezado -->
+    <div class="flex items-center justify-between p-6 border-b border-stone-800">
+
+      <div>
+        <h2 class="text-2xl font-black uppercase italic">
+          MI PEDIDO
+        </h2>
+
+        <p class="text-stone-400 text-sm">
+          Revisa tu pedido
+        </p>
+      </div>
+
+      <button onclick="closeCart()" class="text-stone-400 hover:text-white text-3xl">
+        ×
+      </button>
+
+    </div>
+
+    <!-- Productos del carrito -->
+    <div id="cart-items" class="flex-1 overflow-y-auto px-6">
+
+      <p class="text-stone-400 text-center mt-10">
+        Aún no has agregado productos
+      </p>
+
+    </div>
+
+    <!-- Total -->
+    <div class="border-t border-stone-700 p-6">
+
+      <div class="flex justify-between text-xl font-bold mb-4">
+
+        <span>TOTAL</span>
+
+        <span id="cart-total" class="text-orange-500">
+          $0
+        </span>
+
+      </div>
+
+      <button onclick="sendToWhatsApp()"
+        class="w-full bg-green-600 hover:bg-green-700 text-white py-4 font-bold transition-all">
+
+        ENVIAR PEDIDO POR WHATSAPP
+
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- BOTÓN FLOTANTE -->
+
+  <button id="cart-button" onclick="openCart()"
+    class="bg-orange-600 text-white px-5 py-4 font-bold shadow-lg flex items-center gap-3">
+
+    <span class="material-symbols-outlined">
+      shopping_cart
+    </span>
+
+    <span id="cart-count">0</span>
+
+    <span>MI PEDIDO</span>
+
+  </button>
+  ```
+  <script>
+
+    const cart = {};
+
+
+    function addToCart(name, price) {
+
+      if (cart[name]) {
+
+        cart[name].quantity++;
+
+      } else {
+
+        cart[name] = {
+          price: price,
+          quantity: 1
+        };
+
+      }
+
+      updateCart();
+
+    }
+
+
+    function changeQuantity(name, amount) {
+
+      cart[name].quantity += amount;
+
+      if (cart[name].quantity <= 0) {
+
+        delete cart[name];
+
+      }
+
+      updateCart();
+
+    }
+
+
+    function updateCart() {
+
+      const cartItems = document.getElementById("cart-items");
+
+      const cartCount = document.getElementById("cart-count");
+
+      const cartTotal = document.getElementById("cart-total");
+
+
+      cartItems.innerHTML = "";
+
+
+      let total = 0;
+
+      let count = 0;
+
+
+      Object.keys(cart).forEach(name => {
+
+        const item = cart[name];
+
+        const subtotal =
+          item.price * item.quantity;
+
+
+        total += subtotal;
+
+        count += item.quantity;
+
+
+        cartItems.innerHTML += `
+
+      <div class="border-b border-stone-700 py-4">
+
+        <div class="flex justify-between text-white font-bold">
+
+          <span>${name}</span>
+
+          <span>
+            $${subtotal.toLocaleString("es-CO")}
+          </span>
+
+        </div>
+
+
+        <div class="flex gap-4 items-center mt-3">
+
+          <button
+            onclick="changeQuantity('${name}', -1)"
+            class="bg-stone-700 w-8 h-8">
+
+            −
+
+          </button>
+
+
+          <span class="text-white font-bold">
+
+            ${item.quantity}
+
+          </span>
+
+
+          <button
+            onclick="changeQuantity('${name}', 1)"
+            class="bg-orange-600 w-8 h-8">
+
+            +
+
+          </button>
+
+        </div>
+
+      </div>
+
+    `;
+
+      });
+
+
+      if (count === 0) {
+
+        cartItems.innerHTML = `
+
+      <p class="text-stone-400 text-center mt-10">
+
+        Aún no has agregado productos
+
+      </p>
+
+    `;
+
+      }
+
+
+      cartCount.textContent = count;
+
+
+      cartTotal.textContent =
+        "$" + total.toLocaleString("es-CO");
+
+    }
+
+
+    function openCart() {
+
+      document
+        .getElementById("cart-panel")
+        .classList.add("open");
+
+
+      document
+        .getElementById("cart-overlay")
+        .classList.add("open");
+
+    }
+
+
+    function closeCart() {
+
+      document
+        .getElementById("cart-panel")
+        .classList.remove("open");
+
+
+      document
+        .getElementById("cart-overlay")
+        .classList.remove("open");
+
+    }
+
+
+    function sendToWhatsApp() {
+
+      if (Object.keys(cart).length === 0) {
+
+        alert(
+          "Agrega al menos un producto al pedido."
+        );
+
+        return;
+
+      }
+
+
+      let message =
+        "Hola K-LI 👋%0A%0A" +
+        "Quiero hacer el siguiente pedido:%0A%0A";
+
+
+      let total = 0;
+
+
+      Object.keys(cart).forEach(name => {
+
+        const item = cart[name];
+
+        const subtotal =
+          item.price * item.quantity;
+
+
+        total += subtotal;
+
+
+        message +=
+          "🥪 " +
+          name +
+          " x" +
+          item.quantity +
+          " - $" +
+          subtotal.toLocaleString("es-CO") +
+          "%0A";
+
+      });
+
+
+      message +=
+        "%0A💰 TOTAL: $" +
+        total.toLocaleString("es-CO") +
+        "%0A%0A";
+
+
+      message +=
+        "¿Me confirmas disponibilidad?";
+
+
+      const whatsapp =
+        "https://wa.me/573508485527?text=" +
+        encodeURIComponent(
+          decodeURIComponent(message)
+        );
+
+
+      window.open(
+        whatsapp,
+        "_blank"
+      );
+
+    }
+
+  </script>
+
+
 </body>
 
 </html>
